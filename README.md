@@ -10,7 +10,7 @@ A GitHub CLI extension for automating common ACA tasks across repositories.
 
 ## What is this?
 
-It's a GitHub Command Line (gh cli) extension,  provides two essential commands for managing application configurations:
+It's a GitHub Command Line (gh cli) extension that provides two essential commands for managing tech-stack configurations:
 
 - **`ip-port`** - Scans repositories to extract IP addresses and port configurations from config files
 - **`flip-adapters`** - Toggles adapter settings (0↔1) in environment parameter files with optional Git workflow automation

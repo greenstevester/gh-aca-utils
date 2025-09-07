@@ -58,6 +58,7 @@ func TestCmdFlipAdapters_Creation(t *testing.T) {
 		flag := cmd.Flags().Lookup(flagName)
 		if flag == nil {
 			t.Errorf("Expected --%s flag to exist", flagName)
+			continue
 		}
 		if flag.Value.Type() != "bool" {
 			t.Errorf("Expected --%s to be boolean flag", flagName)

@@ -289,7 +289,10 @@ func TestChange_JSON(t *testing.T) {
 func TestTable(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("Failed to create pipe: %v", err)
+	}
 	os.Stdout = w
 
 	// Create and render a table
@@ -300,10 +303,14 @@ func TestTable(t *testing.T) {
 	table.Render()
 
 	// Restore stdout and read captured output
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("Failed to close writer: %v", err)
+	}
 	os.Stdout = oldStdout
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("Failed to read from pipe: %v", err)
+	}
 	output := buf.String()
 
 	// Verify the output contains expected structure
@@ -354,7 +361,7 @@ func TestScanForIPPort_Integration(t *testing.T) {
 
 	// Create test files
 	configDir := filepath.Join(tmpDir, "config")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		t.Fatalf("Failed to create config dir: %v", err)
 	}
 
@@ -368,7 +375,7 @@ database.port=5432
 timeout=30
 # Comment with IP 172.16.0.1 should be ignored
 `
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configFile, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
@@ -379,7 +386,7 @@ timeout=30
   httpPort: 3000
   httpsPort: "3443"
 `
-	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0644); err != nil {
+	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0600); err != nil {
 		t.Fatalf("Failed to write YAML file: %v", err)
 	}
 
@@ -387,10 +394,7 @@ timeout=30
 	includes := []string{"**/*.properties", "**/*.yml"}
 	excludes := []string{"**/node_modules/**"}
 
-	rows, err := scanForIPPort(tmpDir, includes, excludes)
-	if err != nil {
-		t.Fatalf("scanForIPPort failed: %v", err)
-	}
+	rows := scanForIPPort(tmpDir, includes, excludes)
 
 	// Verify results
 	if len(rows) == 0 {

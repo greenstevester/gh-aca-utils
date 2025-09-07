@@ -77,10 +77,7 @@ func cmdIPPort() *cobra.Command {
 			inc := splitCSV(includes, []string{"**/*"})
 			exc := splitCSV(excludes, []string{"**/.git/**", "**/node_modules/**"})
 
-			rows, err := scanForIPPort(tmpDir, inc, exc)
-			if err != nil {
-				return err
-			}
+			rows := scanForIPPort(tmpDir, inc, exc)
 			return printRows(rows, modeVal)
 		},
 	}
@@ -169,7 +166,9 @@ func cmdFlipAdapters() *cobra.Command {
 
 			if len(changes) == 0 {
 				if modeVal == outJSON {
-					_ = json.NewEncoder(os.Stdout).Encode([]change{})
+					if err := json.NewEncoder(os.Stdout).Encode([]change{}); err != nil {
+						return fmt.Errorf("encode JSON: %w", err)
+					}
 					return nil
 				}
 				fmt.Println("No changes made.")
@@ -180,7 +179,7 @@ func cmdFlipAdapters() *cobra.Command {
 				return printChangeReport(changes, modeVal)
 			}
 
-			if err := os.WriteFile(propPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
+			if err := os.WriteFile(propPath, []byte(strings.Join(lines, "\n")), 0600); err != nil {
 				return fmt.Errorf("write %s: %w", propPath, err)
 			}
 
@@ -243,7 +242,7 @@ func cloneOrDownload(repo, ref string) (string, func(), error) {
 	if ref != "" {
 		args = append(args, "--branch", ref)
 	}
-	if err := execCommand("gh", args...); err == nil {
+	if cloneErr := execCommand("gh", args...); cloneErr == nil {
 		return tmp, cleanup, nil
 	}
 
@@ -266,13 +265,26 @@ func cloneOrDownload(repo, ref string) (string, func(), error) {
 		cleanup()
 		return "", nil, err
 	}
-	_ = cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		// Log but don't fail - tar extraction may have succeeded
+		fmt.Fprintf(os.Stderr, "warning: gh api command failed: %v\n", err)
+	}
 
-	entries, _ := os.ReadDir(tmp)
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("read temp dir: %w", err)
+	}
 	if len(entries) == 1 && entries[0].IsDir() {
 		top := filepath.Join(tmp, entries[0].Name())
-		moveUp(top, tmp)
-		_ = os.Remove(top)
+		if err := moveUp(top, tmp); err != nil {
+			cleanup()
+			return "", nil, fmt.Errorf("move files up: %w", err)
+		}
+		if err := os.Remove(top); err != nil {
+			// Non-critical error, continue
+			fmt.Fprintf(os.Stderr, "warning: failed to remove temp dir: %v\n", err)
+		}
 	}
 	return tmp, cleanup, nil
 }
@@ -282,7 +294,12 @@ func untarGz(r io.Reader, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() {
+		if closeErr := gz.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close gzip reader: %v\n", closeErr)
+		}
+	}()
+
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
@@ -292,35 +309,65 @@ func untarGz(r io.Reader, dest string) error {
 		if err != nil {
 			return err
 		}
-		fp := filepath.Join(dest, hdr.Name)
+
+		// Validate header name to prevent path traversal
+		if strings.Contains(hdr.Name, "..") {
+			continue // Skip potentially malicious paths
+		}
+
+		fp := filepath.Join(dest, filepath.Clean(hdr.Name))
+
+		// Ensure we're still within dest directory
+		if !strings.HasPrefix(fp, filepath.Clean(dest)+string(os.PathSeparator)) {
+			continue
+		}
+
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(fp, os.FileMode(hdr.Mode)); err != nil {
+			mode := os.FileMode(hdr.Mode) & 0755 // Restrict permissions
+			if err := os.MkdirAll(fp, mode); err != nil {
 				return err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(fp), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(fp), 0750); err != nil {
 				return err
 			}
 			f, err := os.Create(fp)
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+
+			// Limit file size to prevent decompression bombs
+			const maxFileSize = 100 * 1024 * 1024 // 100MB limit
+			limited := io.LimitReader(tr, maxFileSize)
+
+			if _, err := io.Copy(f, limited); err != nil {
+				if closeErr := f.Close(); closeErr != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to close file: %v\n", closeErr)
+				}
 				return err
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func moveUp(src, dest string) {
-	entries, _ := os.ReadDir(src)
-	for _, e := range entries {
-		_ = os.Rename(filepath.Join(src, e.Name()), filepath.Join(dest, e.Name()))
+func moveUp(src, dest string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("read source directory: %w", err)
 	}
+	for _, e := range entries {
+		srcPath := filepath.Join(src, e.Name())
+		destPath := filepath.Join(dest, e.Name())
+		if err := os.Rename(srcPath, destPath); err != nil {
+			return fmt.Errorf("move %s to %s: %w", srcPath, destPath, err)
+		}
+	}
+	return nil
 }
 
 // --- scanning
@@ -329,20 +376,24 @@ var (
 	ipv4   = regexp.MustCompile(`\b((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\b`)
 	ipv6   = regexp.MustCompile(`(::1|([0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{0,4}|::)`)
 	kvRe   = regexp.MustCompile(`^\s*([A-Za-z0-9_.\-]+)\s*[:=]\s*(.+?)\s*$`)
-	portRe = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.\-]*port[A-Za-z0-9_.\-]*)\s*[:=\s]\s*[\"']?([0-9]{2,5})[\"']?\b`)
+	portRe = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.\-]*port[A-Za-z0-9_.\-]*)\s*[:=\s]\s*["']?([0-9]{2,5})["']?\b`)
 )
 
-func scanForIPPort(root string, includes, excludes []string) ([]matchRow, error) {
-	rows := []matchRow{}
+func scanForIPPort(root string, includes, excludes []string) []matchRow {
+	var rows []matchRow
 	var files []string
-	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		rel, _ := filepath.Rel(root, path)
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err // Return error instead of ignoring
+		}
 		if matchAny(rel, excludes) {
 			return nil
 		}
@@ -352,10 +403,20 @@ func scanForIPPort(root string, includes, excludes []string) ([]matchRow, error)
 		files = append(files, path)
 		return nil
 	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: error walking directory: %v\n", err)
+	}
+
 	sort.Strings(files)
 
 	for _, f := range files {
-		rel, _ := filepath.Rel(root, f)
+		rel, err := filepath.Rel(root, f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to get relative path for %s: %v\n", f, err)
+			continue
+		}
+
 		fh, err := os.Open(f)
 		if err != nil {
 			continue
@@ -391,9 +452,11 @@ func scanForIPPort(root string, includes, excludes []string) ([]matchRow, error)
 				rows = append(rows, matchRow{ipKey, ipVal, portKey, portVal, rel, lineNo})
 			}
 		}
-		fh.Close()
+		if err := fh.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", f, err)
+		}
 	}
-	return rows, nil
+	return rows
 }
 
 func printRows(rows []matchRow, mode outputMode) error {
@@ -508,7 +571,11 @@ func stripQuotes(s string) string {
 
 func matchAny(path string, patterns []string) bool {
 	for _, p := range patterns {
-		ok, _ := doublestar.PathMatch(p, path)
+		ok, err := doublestar.PathMatch(p, path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: invalid pattern %q: %v\n", p, err)
+			continue
+		}
 		if ok {
 			return true
 		}

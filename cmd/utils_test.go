@@ -176,7 +176,7 @@ func TestTempOperations(t *testing.T) {
 	}
 
 	// Verify file exists and has correct content
-	readContent, err := os.ReadFile(testFile)
+	readContent, err := os.ReadFile(testFile) // #nosec G304 -- testFile is safely constructed in test
 	if err != nil {
 		t.Fatalf("Failed to read test file: %v", err)
 	}

@@ -392,7 +392,7 @@ timeout=30
 
 	// Run the scan
 	includes := []string{"**/*.properties", "**/*.yml"}
-	excludes := []string{"**/node_modules/**"}
+	excludes := []string{"**/node_modules/**", "**/dist/**", "**/.git/**"}
 
 	rows := scanForIPPort(tmpDir, includes, excludes)
 

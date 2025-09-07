@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Build
+      run: go build -v ./cmd/fcgh
+
+    - name: Debug - Show environment (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        echo "=== Environment Variables ==="
+        go env
+        echo "=== Current Directory ==="
+        pwd
+        echo "=== Directory Contents ==="
+        dir
+        echo "=== Go Version ==="
+        go version
+        echo "=== Git Version ==="
+        git version
+        echo "=== HOME and USER env vars ==="
+        echo "HOME: $env:HOME"
+        echo "USERPROFILE: $env:USERPROFILE"
+        echo "USERNAME: $env:USERNAME"
+      shell: pwsh
+
+    - name: Run tests
+      run: go test -race -coverprofile='coverage.out' -covermode='atomic' -v './...'
+      env:
+        VERBOSE_TEST: ${{ matrix.os == 'windows-latest' && 'true' || '' }}
+
+    - name: Run tests with extra debugging (Windows)
+      if: matrix.os == 'windows-latest' && failure()
+      run: |
+        echo "=== Running tests with extra verbosity ==="
+        echo "=== Testing each package individually ==="
+        
+        echo "--- Testing cmd/fcgh ---"
+        go test -race -v -count=1 ./cmd/fcgh 2>&1 | tee test-fcgh.log
+        
+        echo "--- Testing cmd/ccg ---"
+        go test -race -v -count=1 ./cmd/ccg 2>&1 | tee test-ccg.log
+        
+        echo "--- Testing cmd/ccdo ---"
+        go test -race -v -count=1 ./cmd/ccdo 2>&1 | tee test-ccdo.log
+        
+        echo "--- Testing internal/config ---"
+        go test -race -v -count=1 ./internal/config 2>&1 | tee test-config.log
+        
+        echo "--- Testing internal/validator ---"
+        go test -race -v -count=1 ./internal/validator 2>&1 | tee test-validator.log
+        
+        echo "--- Testing pkg/conventionalcommit ---"
+        go test -race -v -count=1 ./pkg/conventionalcommit 2>&1 | tee test-conventionalcommit.log
+        
+        echo "=== All test outputs saved ==="
+      shell: pwsh
+      continue-on-error: true
+
+    - name: Upload Windows test logs
+      if: matrix.os == 'windows-latest' && failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-test-logs
+        path: |
+          test-*.log
+          coverage-debug.out
+
+    - name: Run benchmarks
+      run: |
+        echo "Running benchmarks..."
+        go test -bench=. -benchmem -run='^$' ./cmd/... ./internal/... ./pkg/... || true
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.4.0
+        args: --timeout=5m
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Run Gosec Security Scanner
+      run: |
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        gosec -no-fail -fmt sarif -out gosec.sarif ./...
+
+    - name: Upload SARIF file
+      if: always() && github.event_name != 'pull_request'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: gosec.sarif
+      continue-on-error: true
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Build for multiple platforms
+      run: |
+        # Linux
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/fcgh-linux-amd64 ./cmd/fcgh
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o build/fcgh-linux-arm64 ./cmd/fcgh
+        
+        # macOS
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o build/fcgh-darwin-amd64 ./cmd/fcgh
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o build/fcgh-darwin-arm64 ./cmd/fcgh
+        
+        # Windows
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/fcgh-windows-amd64.exe ./cmd/fcgh
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries
+        path: build/
+

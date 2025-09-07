@@ -1,0 +1,26 @@
+name: Demo GIF
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  vhs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Builds GIF(s) from your .tape
+      - name: Run VHS
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: demo.tape
+          install-fonts: true   # optional; adds popular monospace fonts
+
+      # Auto-commit any updated GIF assets
+      - name: Commit GIF
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(ci): update demo.gif"
+          file_pattern: docs/demo.gif

@@ -1,0 +1,111 @@
+version: '3'
+
+vars:
+  BINARY_NAME: gh-aca-utils
+  BUILD_DIR: ./dist
+
+tasks:
+  default:
+    desc: "Show available tasks"
+    cmds:
+      - task --list
+
+  deps:
+    desc: "Download and verify Go module dependencies"
+    cmds:
+      - go mod download
+      - go mod verify
+
+  tidy:
+    desc: "Clean up go.mod and go.sum"
+    cmds:
+      - go mod tidy
+
+  fmt:
+    desc: "Format Go code"
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: "Run go vet"
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: "Run golangci-lint"
+    deps: [fmt]
+    cmds:
+      - golangci-lint run
+
+  lint-minimal:
+    desc: "Run golangci-lint with minimal config"
+    deps: [fmt]
+    cmds:
+      - golangci-lint run -c .golangci-minimal.yml
+
+  test:
+    desc: "Run tests"
+    cmds:
+      - go test -v ./...
+
+  test-coverage:
+    desc: "Run tests with coverage"
+    cmds:
+      - go test -v -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+
+  build:
+    desc: "Build the binary"
+    deps: [deps, fmt, vet]
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BINARY_NAME}}{{exeExt}}"
+    cmds:
+      - go build -o {{.BINARY_NAME}}{{exeExt}} .
+
+  build-all:
+    desc: "Build for all platforms using goreleaser"
+    deps: [clean]
+    cmds:
+      - goreleaser build --snapshot --clean
+
+  install:
+    desc: "Install the extension to gh CLI"
+    deps: [build]
+    cmds:
+      - gh extension install .
+
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - rm -f {{.BINARY_NAME}}{{exeExt}}
+      - rm -rf {{.BUILD_DIR}}
+      - rm -f coverage.out coverage.html
+
+  dev:
+    desc: "Development workflow - fmt, vet, test, build"
+    cmds:
+      - task fmt
+      - task vet
+      - task test
+      - task build
+
+  ci:
+    desc: "CI workflow - deps, lint, test"
+    cmds:
+      - task deps
+      - task lint-minimal
+      - task test
+
+  demo:
+    desc: "Record demo using VHS"
+    cmds:
+      - vhs demo.tape
+
+  release:
+    desc: "Create a release using goreleaser"
+    cmds:
+      - goreleaser release --clean

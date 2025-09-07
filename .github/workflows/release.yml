@@ -1,0 +1,204 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '../../example-configs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests
+        run: make test
+
+      - name: Run linters
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4.0
+          args: --timeout=5m
+
+  release:
+    name: Release
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
+
+    - name: Generate tag
+      id: tag
+      run: |
+        # Fetch all tags to ensure we have the latest
+        echo "Fetching all tags..."
+        git fetch --tags --force
+        
+        # List all existing tags for debugging
+        echo "Existing tags:"
+        git tag -l 'v*' | sort -V || echo "No tags found"
+        
+        # Get the latest tag using version sort
+        LATEST_TAG=$(git tag -l 'v*' | sort -V | tail -n1)
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No existing tags found, starting from v0.0.0"
+          LATEST_TAG="v0.0.0"
+        fi
+        echo "Latest tag: $LATEST_TAG"
+        
+        # Extract version numbers
+        VERSION=$(echo $LATEST_TAG | sed 's/^v//')
+        IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+        MAJOR=${VERSION_PARTS[0]:-0}
+        MINOR=${VERSION_PARTS[1]:-0}
+        PATCH=${VERSION_PARTS[2]:-0}
+        
+        echo "Current version: ${MAJOR}.${MINOR}.${PATCH}"
+        
+        # Determine version bump based on commit messages
+        # Check for breaking changes or features
+        COMMIT_MSG=$(git log -1 --pretty=%B)
+        if echo "$COMMIT_MSG" | grep -q "BREAKING CHANGE\|^feat!:"; then
+          echo "Breaking change detected, incrementing major version"
+          MAJOR=$((MAJOR + 1))
+          MINOR=0
+          PATCH=0
+        elif echo "$COMMIT_MSG" | grep -q "^feat:"; then
+          echo "Feature detected, incrementing minor version"
+          MINOR=$((MINOR + 1))
+          PATCH=0
+        else
+          echo "Patch/fix detected, incrementing patch version"
+          PATCH=$((PATCH + 1))
+        fi
+        
+        NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+        
+        # Keep incrementing patch until we find an unused tag
+        ATTEMPTS=0
+        MAX_ATTEMPTS=100
+        while git rev-parse "$NEW_TAG" >/dev/null 2>&1; do
+          echo "Tag $NEW_TAG already exists, incrementing patch..."
+          PATCH=$((PATCH + 1))
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          ATTEMPTS=$((ATTEMPTS + 1))
+          if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+            echo "Error: Unable to find available tag after $MAX_ATTEMPTS attempts"
+            exit 1
+          fi
+        done
+        
+        echo "Generated new tag: $NEW_TAG"
+        echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "version=${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
+
+    - name: Display release information
+      run: |
+        echo "🎉 Preparing to release version ${{ steps.tag.outputs.tag }}"
+        echo "Version: ${{ steps.tag.outputs.version }}"
+        echo ""
+        echo "Recent commits since last tag:"
+        git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --oneline || echo "First release"
+
+    - name: Create and push tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Double-check the tag doesn't exist before creating
+        if git rev-parse "${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+          echo "Error: Tag ${{ steps.tag.outputs.tag }} already exists!"
+          echo "This should not happen - the tag generation step should have handled this."
+          echo "Existing tags:"
+          git tag -l 'v*' | sort -V
+          exit 1
+        fi
+        
+        echo "Creating tag ${{ steps.tag.outputs.tag }}..."
+        git tag -a ${{ steps.tag.outputs.tag }} -m "Release ${{ steps.tag.outputs.tag }}"
+        
+        echo "Pushing tag to origin..."
+        git push origin ${{ steps.tag.outputs.tag }}
+        
+        echo "✅ Tag ${{ steps.tag.outputs.tag }} created and pushed successfully!"
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        distribution: goreleaser
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # homebrew:
+  #   name: Update Homebrew
+  #   runs-on: ubuntu-latest
+  #   needs: release
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   
+  #   steps:
+  #   - name: Update Homebrew formula
+  #     uses: dawidd6/action-homebrew-bump-formula@v3
+  #     with:
+  #       token: ${{ secrets.HOMEBREW_TOKEN }}
+  #       formula: fast-cc-hooks
+  #       tag: ${{ github.ref }}
+  #       revision: ${{ github.sha }}
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [release]  # removed homebrew dependency
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: needs.release.result == 'success'
+      run: |
+        echo "Release completed successfully!"
+        # Add notification logic here (Slack, Discord, etc.)
+        
+    - name: Notify on failure
+      if: needs.release.result == 'failure'
+      run: |
+        echo "Release failed!"
+        # Add failure notification logic here

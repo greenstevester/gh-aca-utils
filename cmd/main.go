@@ -380,7 +380,7 @@ func moveUp(src, dest string) error {
 
 var (
 	ipv4   = regexp.MustCompile(`\b((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\b`)
-	ipv6   = regexp.MustCompile(`(::1|([0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{0,4}|::)`)
+	ipv6   = regexp.MustCompile(`[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,6}::|::([0-9a-fA-F]{1,4}:){1,6}[0-9a-fA-F]{1,4}|::|::1`)
 	kvRe   = regexp.MustCompile(`^\s*([A-Za-z0-9_.\-]+)\s*[:=]\s*(.+?)\s*$`)
 	portRe = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.\-]*port[A-Za-z0-9_.\-]*)\s*[:=\s]\s*["']?([0-9]{2,5})["']?\b`)
 )
@@ -440,7 +440,7 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 			if m := kvRe.FindStringSubmatch(line); len(m) == 3 {
 				k, v := m[1], strings.TrimSpace(m[2])
 				if looksLikeIP(v) {
-					ipKey, ipVal = k, v
+					ipKey, ipVal = k, stripQuotes(v)
 				}
 				if looksLikePort(k, v) {
 					portKey, portVal = k, stripQuotes(v)

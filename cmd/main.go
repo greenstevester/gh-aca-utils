@@ -586,8 +586,11 @@ func stripQuotes(s string) string {
 }
 
 func matchAny(path string, patterns []string) bool {
+	// Normalize path separators for cross-platform compatibility
+	normalizedPath := filepath.ToSlash(path)
+	
 	for _, p := range patterns {
-		ok, err := doublestar.PathMatch(p, path)
+		ok, err := doublestar.PathMatch(p, normalizedPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: invalid pattern %q: %v\n", p, err)
 			continue

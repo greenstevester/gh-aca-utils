@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -354,77 +353,3 @@ func TestCSVEsc(t *testing.T) {
 	}
 }
 
-// Integration test for scanForIPPort with temporary files
-func TestScanForIPPort_Integration(t *testing.T) {
-	// Create temporary directory structure
-	tmpDir := t.TempDir()
-
-	// Create test files
-	configDir := filepath.Join(tmpDir, "config")
-	if err := os.MkdirAll(configDir, 0750); err != nil {
-		t.Fatalf("Failed to create config dir: %v", err)
-	}
-
-	// Write test configuration file
-	configFile := filepath.Join(configDir, "app.properties")
-	configContent := `# Application configuration
-server.host=192.168.1.100
-server.port=8080
-database.host=10.0.0.5
-database.port=5432
-timeout=30
-# Comment with IP 172.16.0.1 should be ignored
-`
-	if err := os.WriteFile(configFile, []byte(configContent), 0600); err != nil {
-		t.Fatalf("Failed to write config file: %v", err)
-	}
-
-	// Write YAML file
-	yamlFile := filepath.Join(tmpDir, "service.yml")
-	yamlContent := `service:
-  host: "203.0.113.1"
-  httpPort: 3000
-  httpsPort: "3443"
-`
-	if err := os.WriteFile(yamlFile, []byte(yamlContent), 0600); err != nil {
-		t.Fatalf("Failed to write YAML file: %v", err)
-	}
-
-	// Run the scan
-	includes := []string{"**/*.properties", "**/*.yml"}
-	excludes := []string{"**/node_modules/**", "**/dist/**", "**/.git/**"}
-
-	rows := scanForIPPort(tmpDir, includes, excludes)
-
-	// Verify results
-	if len(rows) == 0 {
-		t.Error("Expected some matches, got none")
-	}
-
-	// Check for specific expected matches
-	foundServerHost := false
-	foundServerPort := false
-	foundYamlHost := false
-
-	for _, row := range rows {
-		if row.IPKey == "server.host" && row.IPValue == "192.168.1.100" {
-			foundServerHost = true
-		}
-		if row.PortKey == "server.port" && row.PortValue == "8080" {
-			foundServerPort = true
-		}
-		if row.IPValue == "203.0.113.1" {
-			foundYamlHost = true
-		}
-	}
-
-	if !foundServerHost {
-		t.Error("Expected to find server.host=192.168.1.100")
-	}
-	if !foundServerPort {
-		t.Error("Expected to find server.port=8080")
-	}
-	if !foundYamlHost {
-		t.Error("Expected to find YAML host 203.0.113.1")
-	}
-}

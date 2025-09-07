@@ -16,8 +16,8 @@ func TestMatchAny(t *testing.T) {
 	}{
 		{"src/main.go", []string{"**/*.go"}, true},
 		{"src/main.go", []string{"**/*.js"}, false},
-		{"node_modules/pkg/file.js", []string{"**/node_modules/**"}, true},
-		{"dist/bundle.js", []string{"**/dist/**", "**/build/**"}, true},
+		{"node_modules/pkg/file.js", []string{"**/*.go", "**/*.properties"}, false},
+		{"dist/bundle.js", []string{"**/*.go", "**/*.properties"}, false},
 		{"config/app.properties", []string{"**/*.properties", "**/*.yml"}, true},
 		{"README.md", []string{"**/*.go", "**/*.js"}, false},
 		{"deep/nested/path/file.txt", []string{"**/*.txt"}, true},

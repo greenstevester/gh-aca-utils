@@ -15,8 +15,6 @@ It's a GitHub Command Line (gh cli) extension that provides two essential comman
 - **`ip-port`** - Scans repositories to extract IP addresses and port configurations from config files
 - **`flip-adapters`** - Toggles adapter settings (0↔1) in environment parameter files with optional Git workflow automation
 
-Perfect for DevOps teams managing multiple microservices with environment-specific configurations.
-
 ![demo](docs/demo.gif)
 
 ## 🚀 Quick Start
@@ -29,11 +27,7 @@ Perfect for DevOps teams managing multiple microservices with environment-specif
 
 ## Installation
 
-1. Install the `gh` cli - see the [installation](https://github.com/cli/cli#installation)
-
-   _Installation requires a minimum version (2.0.0) of the GitHub CLI that supports extensions._
-
-2. Install this extension:
+1. Install the "gh-aca-utils" extension per below:
 
    ```sh
    gh extension install greenstevester/gh-aca-utils
@@ -42,37 +36,9 @@ Perfect for DevOps teams managing multiple microservices with environment-specif
 <details>
    <summary><strong>Manual Installation</strong></summary>
 
-> If you want to install this extension manually, follow these steps:
+## How to use it
 
-1. clone the repo
-
-   ```sh
-   # git
-   git clone https://github.com/greenstevester/gh-aca-utils
-
-   # GitHub CLI
-   gh repo clone greenstevester/gh-aca-utils
-   ```
-
-2. `cd` into it
-
-   ```sh
-   cd gh-aca-utils
-   ```
-
-3. add dependencies and build it
-
-   ```sh
-   go get && go build
-   ```
-
-4. install it locally
-   ```sh
-   gh extension install .
-   ```
-   </details>
-
-## How to use it ( a few examples )
+NOTE: Once it's installed, you can run the gh "aca" extension commands ALWAYS WITH the "gh" prefix.
 
 ```bash
 # Show available commands
@@ -81,15 +47,19 @@ gh aca --help
 # Get help for specific commands
 gh aca ip-port --help
 gh aca flip-adapters --help
+gh aca set-adapters --help
 ```
 
 ### IP/Port Extraction Command
 
-Extract IP addresses and port configurations from repository files:
+Extract IP addresses and port configurations from a target repository across all branches:
 
 ```bash
-# Scan a public repository for IP/port configurations
+# Scan a public repository for IP/port configurations (default branch only)
 gh aca ip-port --repo octocat/Hello-World --output table
+
+# Scan ALL branches in the repository for comprehensive coverage
+gh aca ip-port --repo myorg/microservice --all-branches --output table
 
 # Scan with custom file patterns
 gh aca ip-port --repo myorg/microservice \
@@ -99,6 +69,11 @@ gh aca ip-port --repo myorg/microservice \
 
 # Scan specific branch or tag
 gh aca ip-port --repo myorg/api-service --ref production --output csv
+
+# Scan all branches with custom patterns and exclusions  
+gh aca ip-port --repo myorg/config-repo --all-branches \
+  --include "**/*.properties,**/*.env" \
+  --exclude "**/test/**" --output json
 ```
 
 **Supported file types**: `.properties`, `.yml`, `.yaml`, `.conf`, `.ini`, `.txt`, `.env`, `.json`
@@ -119,7 +94,38 @@ redis.host      172.16.0.10   redis.port     6379        config/cache.yml       
 api.host        192.168.1.100 api.port       8080        env/prod/service.properties  15
 ```
 
-### Adapter Toggle Command
+**With `--all-branches` flag:**
+```bash
+$ gh aca ip-port --repo myorg/config-repo --all-branches --output table
+
+IP Key          IP Value      Port Key       Port Value  File Path                         Line
+database.host   10.0.0.5      database.port  5432        [main] config/app.properties      12
+redis.host      172.16.0.10   redis.port     6379        [main] config/cache.yml           8
+api.host        192.168.1.100 api.port       8080        [main] env/prod/service.properties 15
+test.host       127.0.0.1     test.port      9999        [dev] config/test.properties     5
+staging.host    10.1.0.5      staging.port   8081        [staging] config/app.properties  20
+```
+
+### Adapter Management Commands
+
+#### Set Adapters Command
+
+Store frequently used adapter lists for reuse with the `flip-adapters` command:
+
+```bash
+# Store a list of adapters for easy reuse
+gh aca set-adapters --adapters billing,payment,notifications,search
+
+# List currently stored adapters
+gh aca set-adapters --list
+
+# Clear all stored adapters
+gh aca set-adapters --clear
+```
+
+The adapters are stored in `~/.gh-aca-utils/adapters.txt` and can be automatically used by `flip-adapters` when `--adapters` is not specified.
+
+#### Environment Adapter Toggle Command
 
 Toggle adapter configurations in environment parameter files:
 
@@ -142,12 +148,21 @@ gh aca flip-adapters --repo myorg/service \
   --env staging \
   --adapters crm,inventory \
   --dry-run=false
+
+# Use stored adapters (no --adapters flag needed)
+gh aca flip-adapters --repo myorg/service \
+  --env production \
+  --commit \
+  --pr
 ```
 
 **Required flags**:
 - `--repo` - Target repository (format: `owner/repo`)  
-- `--env` - Environment directory under `env/` (e.g., `dev`, `staging`, `production`)
+- `--env` - Environment directory under `env/` (e.g., `dev`, `acc`, `prd`)
+
+**Adapter specification** (one of these):
 - `--adapters` - Comma-separated list of adapter keys to toggle
+- Use stored adapters from `gh aca set-adapters` (when `--adapters` is omitted)
 
 **Optional flags**:
 - `--commit` - Create commit and push to new branch

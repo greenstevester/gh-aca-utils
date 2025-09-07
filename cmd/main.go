@@ -47,6 +47,7 @@ func Execute() {
 	root := &cobra.Command{Use: "aca", Short: "IP/Port extraction + adapter toggler"}
 	root.AddCommand(cmdIPPort())
 	root.AddCommand(cmdFlipAdapters())
+	root.AddCommand(cmdSetAdapters())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -58,15 +59,20 @@ func cmdIPPort() *cobra.Command {
 	var repo, ref string
 	var includes, excludes string
 	var mode string
+	var allBranches bool
 
 	cmd := &cobra.Command{
 		Use:   "ip-port",
-		Short: "Scan repo for IP/Port key/value pairs",
+		Short: "Scan repo for IP/Port key/value pairs across branches",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if repo == "" {
 				return fmt.Errorf("--repo ORG/REPO is required")
 			}
 			modeVal := parseMode(mode, outCSV)
+
+			if allBranches {
+				return scanAllBranches(repo, includes, excludes, modeVal)
+			}
 
 			tmpDir, cleanup, err := cloneOrDownload(repo, ref)
 			if err != nil {
@@ -84,6 +90,7 @@ func cmdIPPort() *cobra.Command {
 
 	cmd.Flags().StringVar(&repo, "repo", "", "Target repo as ORG/REPO")
 	cmd.Flags().StringVar(&ref, "ref", "", "Branch or tag (default: default branch)")
+	cmd.Flags().BoolVar(&allBranches, "all-branches", false, "Scan all branches in the repository")
 	cmd.Flags().StringVar(&includes, "include",
 		"**/*.properties,**/*.yml,**/*.yaml,**/*.conf,**/*.ini,**/*.txt,**/*.env,**/*.json",
 		"Comma-separated glob patterns to include")
@@ -110,7 +117,21 @@ func cmdFlipAdapters() *cobra.Command {
 				return fmt.Errorf("--env is required (e.g., dev)")
 			}
 			if adaptersCSV == "" {
-				return fmt.Errorf("--adapters is required (comma list)")
+				// Try to load from stored adapters
+				storedAdapters, err := loadStoredAdapters()
+				if err != nil {
+					return fmt.Errorf("--adapters is required (comma list) or run 'gh aca set-adapters' to store adapters first")
+				}
+				if len(storedAdapters) == 0 {
+					return fmt.Errorf("--adapters is required (comma list) or run 'gh aca set-adapters' to store adapters first")
+				}
+				// Validate that no stored adapter names are empty
+				for _, adapter := range storedAdapters {
+					if strings.TrimSpace(adapter) == "" {
+						return fmt.Errorf("invalid empty adapter name found in stored adapters")
+					}
+				}
+				adaptersCSV = strings.Join(storedAdapters, ",")
 			}
 			modeVal := parseMode(mode, outTable)
 
@@ -228,12 +249,43 @@ func cmdFlipAdapters() *cobra.Command {
 
 	cmd.Flags().StringVar(&repo, "repo", "", "Target repo as ORG/REPO (required)")
 	cmd.Flags().StringVar(&envName, "env", "", "Environment directory under env/ (required)")
-	cmd.Flags().StringVar(&adaptersCSV, "adapters", "", "Comma-separated adapter keys (required)")
+	cmd.Flags().StringVar(&adaptersCSV, "adapters", "", "Comma-separated adapter keys (or use stored adapters from 'set-adapters')")
 	cmd.Flags().StringVar(&branch, "branch", "", "Branch name to create (with --commit)")
 	cmd.Flags().BoolVar(&doCommit, "commit", false, "Commit the change to a new branch and push")
 	cmd.Flags().BoolVar(&doPR, "pr", false, "Create a pull request (implies --commit)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", true, "Show planned changes without writing")
 	cmd.Flags().StringVar(&mode, "output", "table", "Output: table|json")
+
+	return cmd
+}
+
+func cmdSetAdapters() *cobra.Command {
+	var adapters string
+	var list, clear bool
+
+	cmd := &cobra.Command{
+		Use:   "set-adapters",
+		Short: "Manage stored adapter lists for reuse in flip-adapters command",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if list {
+				return listStoredAdapters()
+			}
+
+			if clear {
+				return clearStoredAdapters()
+			}
+
+			if adapters == "" {
+				return fmt.Errorf("--adapters is required (comma-separated list)")
+			}
+
+			return storeAdapters(adapters)
+		},
+	}
+
+	cmd.Flags().StringVar(&adapters, "adapters", "", "Comma-separated list of adapter names to store")
+	cmd.Flags().BoolVar(&list, "list", false, "List currently stored adapters")
+	cmd.Flags().BoolVar(&clear, "clear", false, "Clear all stored adapters")
 
 	return cmd
 }
@@ -297,6 +349,28 @@ func cloneOrDownload(repo, ref string) (string, func(), error) {
 			fmt.Fprintf(os.Stderr, "warning: failed to remove temp dir: %v\n", err)
 		}
 	}
+	return tmp, cleanup, nil
+}
+
+func cloneAllBranches(repo string) (string, func(), error) {
+	tmp, err := os.MkdirTemp("", "gh-aca-utils-")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { _ = os.RemoveAll(tmp) }
+
+	// Clone with all branches
+	args := []string{"clone", repo, tmp}
+	if cloneErr := execCommand("git", args...); cloneErr != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to clone repository: %w", cloneErr)
+	}
+
+	// Fetch all remote branches
+	if fetchErr := gitIn(tmp, "fetch", "--all"); fetchErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to fetch all branches: %v\n", fetchErr)
+	}
+
 	return tmp, cleanup, nil
 }
 
@@ -385,8 +459,9 @@ func moveUp(src, dest string) error {
 // --- scanning
 
 var (
-	ipv4   = regexp.MustCompile(`\b((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\b`)
-	ipv6   = regexp.MustCompile(`(?i)(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{0,4}:){1,7}:[0-9a-f]{0,4}|(?:[0-9a-f]{1,4}:){1,6}::|::(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{0,4}|::1|::`)
+	ipv4 = regexp.MustCompile(`\b((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\b`)
+	// IPv6 regex that correctly matches IPv6 addresses including ::1 and compressed forms
+	ipv6   = regexp.MustCompile(`(?i)(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){1,6}::[0-9a-f]{1,4}|(?:[0-9a-f]{1,4}:){1,5}(?::[0-9a-f]{1,4}){1,2}|(?:[0-9a-f]{1,4}:){1,4}(?::[0-9a-f]{1,4}){1,3}|(?:[0-9a-f]{1,4}:){1,3}(?::[0-9a-f]{1,4}){1,4}|(?:[0-9a-f]{1,4}:){1,2}(?::[0-9a-f]{1,4}){1,5}|[0-9a-f]{1,4}:(?::[0-9a-f]{1,4}){1,6}|:(?::[0-9a-f]{1,4}){1,7}|(?:[0-9a-f]{1,4}:){1,7}:|::1|::)`)
 	kvRe   = regexp.MustCompile(`^\s*([A-Za-z0-9_.\-]+)\s*[:=]\s*(.+?)\s*$`)
 	portRe = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.\-]*port[A-Za-z0-9_.\-]*)\s*[:=\s]\s*["']?([0-9]{2,5})["']?\b`)
 )
@@ -430,47 +505,50 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 			continue
 		}
 
-		fh, err := os.Open(f) // #nosec G304 - f is from controlled file walk
-		if err != nil {
-			continue
-		}
-		defer func(file *os.File) {
-			if closeErr := file.Close(); closeErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", f, closeErr)
+		// Use anonymous function to ensure file is closed immediately
+		func() {
+			fh, err := os.Open(f) // #nosec G304 - f is from controlled file walk
+			if err != nil {
+				return
 			}
-		}(fh)
+			defer func() {
+				if closeErr := fh.Close(); closeErr != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", f, closeErr)
+				}
+			}()
 
-		s := bufio.NewScanner(fh)
-		lineNo := 0
-		for s.Scan() {
-			lineNo++
-			line := s.Text()
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
+			s := bufio.NewScanner(fh)
+			lineNo := 0
+			for s.Scan() {
+				lineNo++
+				line := s.Text()
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
 
-			var ipKey, ipVal, portKey, portVal string
-			if m := kvRe.FindStringSubmatch(line); len(m) == 3 {
-				k, v := m[1], strings.TrimSpace(m[2])
-				if looksLikeIP(v) {
-					ipKey, ipVal = k, stripQuotes(v)
+				var ipKey, ipVal, portKey, portVal string
+				if m := kvRe.FindStringSubmatch(line); len(m) == 3 {
+					k, v := m[1], strings.TrimSpace(m[2])
+					if looksLikeIP(v) {
+						ipKey, ipVal = k, stripQuotes(v)
+					}
+					if looksLikePort(k, v) {
+						portKey, portVal = k, stripQuotes(v)
+					}
+				} else {
+					if ip := firstIP(line); ip != "" {
+						ipVal = ip
+					}
+					if pk, pv, ok := findInlinePort(line); ok {
+						portKey, portVal = pk, pv
+					}
 				}
-				if looksLikePort(k, v) {
-					portKey, portVal = k, stripQuotes(v)
-				}
-			} else {
-				if ip := firstIP(line); ip != "" {
-					ipVal = ip
-				}
-				if pk, pv, ok := findInlinePort(line); ok {
-					portKey, portVal = pk, pv
-				}
-			}
 
-			if ipKey != "" || ipVal != "" || portKey != "" || portVal != "" {
-				rows = append(rows, matchRow{ipKey, ipVal, portKey, portVal, rel, lineNo})
+				if ipKey != "" || ipVal != "" || portKey != "" || portVal != "" {
+					rows = append(rows, matchRow{ipKey, ipVal, portKey, portVal, rel, lineNo})
+				}
 			}
-		}
+		}()
 	}
 	return rows
 }
@@ -497,6 +575,80 @@ func printRows(rows []matchRow, mode outputMode) error {
 		return enc.Encode(rows)
 	}
 	return nil
+}
+
+func scanAllBranches(repo, includes, excludes string, mode outputMode) error {
+	tmpDir, cleanup, err := cloneAllBranches(repo)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	// Get all branch names
+	branches, err := getAllBranches(tmpDir)
+	if err != nil {
+		return fmt.Errorf("failed to get branches: %w", err)
+	}
+
+	var allRows []matchRow
+	inc := splitCSV(includes, []string{"**/*"})
+	exc := splitCSV(excludes, []string{"**/.git/**", "**/node_modules/**"})
+
+	for _, branch := range branches {
+		// Checkout each branch
+		if err := gitIn(tmpDir, "checkout", branch); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to checkout branch %s: %v\n", branch, err)
+			continue
+		}
+
+		// Scan this branch
+		rows := scanForIPPort(tmpDir, inc, exc)
+
+		// Add branch information to each row
+		for i := range rows {
+			rows[i].RelPath = fmt.Sprintf("[%s] %s", branch, rows[i].RelPath)
+		}
+
+		allRows = append(allRows, rows...)
+	}
+
+	return printRows(allRows, mode)
+}
+
+func getAllBranches(repoDir string) ([]string, error) {
+	cmd := exec.Command("git", "branch", "-r", "--format=%(refname:short)")
+	cmd.Dir = repoDir
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback for older Git versions that don't support --format
+		cmd = exec.Command("git", "branch", "-r")
+		cmd.Dir = repoDir
+		output, err = cmd.Output()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var branches []string
+	seenBranches := make(map[string]bool)
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		branch := strings.TrimSpace(line)
+		if branch != "" && !strings.Contains(branch, "HEAD") {
+			// Remove origin/ prefix and any leading whitespace/asterisks
+			branch = strings.TrimSpace(strings.TrimPrefix(branch, "*"))
+			if strings.HasPrefix(branch, "origin/") {
+				branch = strings.TrimPrefix(branch, "origin/")
+			}
+			// Only add unique branches
+			if branch != "" && !seenBranches[branch] {
+				seenBranches[branch] = true
+				branches = append(branches, branch)
+			}
+		}
+	}
+
+	return branches, nil
 }
 
 func csvEsc(s string) string {
@@ -588,7 +740,7 @@ func stripQuotes(s string) string {
 func matchAny(path string, patterns []string) bool {
 	// Normalize path separators for cross-platform compatibility
 	normalizedPath := filepath.ToSlash(path)
-	
+
 	for _, p := range patterns {
 		ok, err := doublestar.PathMatch(p, normalizedPath)
 		if err != nil {
@@ -699,4 +851,124 @@ func parseMode(s string, def outputMode) outputMode {
 		return outJSON
 	}
 	return def
+}
+
+// --- adapter storage functions ---
+
+func getAdapterConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	configDir := filepath.Join(homeDir, ".gh-aca-utils")
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	return filepath.Join(configDir, "adapters.txt"), nil
+}
+
+func storeAdapters(adapters string) error {
+	configPath, err := getAdapterConfigPath()
+	if err != nil {
+		return err
+	}
+
+	// Parse and validate adapters
+	adapterList := splitCSV(adapters, nil)
+	if len(adapterList) == 0 {
+		return fmt.Errorf("no valid adapters provided")
+	}
+
+	// Filter out empty adapter names and validate
+	var validAdapters []string
+	for _, adapter := range adapterList {
+		trimmed := strings.TrimSpace(adapter)
+		if trimmed == "" {
+			return fmt.Errorf("empty adapter name not allowed: %q", adapter)
+		}
+		validAdapters = append(validAdapters, trimmed)
+	}
+
+	if len(validAdapters) == 0 {
+		return fmt.Errorf("no valid adapters provided after validation")
+	}
+
+	// Write to file (overwrite existing)
+	content := strings.Join(validAdapters, "\n") + "\n"
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("failed to write adapter file: %w", err)
+	}
+
+	fmt.Printf("Stored %d adapter(s) in %s:\n", len(validAdapters), configPath)
+	for _, adapter := range validAdapters {
+		fmt.Printf("  - %s\n", adapter)
+	}
+
+	return nil
+}
+
+func listStoredAdapters() error {
+	configPath, err := getAdapterConfigPath()
+	if err != nil {
+		return err
+	}
+
+	adapters, err := loadStoredAdapters()
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("No adapters stored yet. Use 'gh aca set-adapters --adapters adapter1,adapter2' to store adapters.\n")
+			return nil
+		}
+		return err
+	}
+
+	if len(adapters) == 0 {
+		fmt.Printf("No adapters stored in %s\n", configPath)
+	} else {
+		fmt.Printf("Stored adapters (%s):\n", configPath)
+		for _, adapter := range adapters {
+			fmt.Printf("  - %s\n", adapter)
+		}
+	}
+
+	return nil
+}
+
+func clearStoredAdapters() error {
+	configPath, err := getAdapterConfigPath()
+	if err != nil {
+		return err
+	}
+
+	if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to clear adapters file: %w", err)
+	}
+
+	fmt.Printf("Cleared stored adapters from %s\n", configPath)
+	return nil
+}
+
+func loadStoredAdapters() ([]string, error) {
+	configPath, err := getAdapterConfigPath()
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := os.ReadFile(configPath) // #nosec G304 - configPath is controlled
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	var adapters []string
+	for _, line := range lines {
+		adapter := strings.TrimSpace(line)
+		if adapter != "" && !strings.HasPrefix(adapter, "#") {
+			adapters = append(adapters, adapter)
+		}
+	}
+
+	return adapters, nil
 }

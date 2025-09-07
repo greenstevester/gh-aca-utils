@@ -71,21 +71,44 @@ Type "gh aca flip-adapters --help"
 Enter
 Sleep 2s
 
-# --- demo 5: demonstrate with a real repo (if available) ---
+# --- demo 5: show set-adapters command help ---
 Type "echo"
 Enter
-Type "# Demo 5: Example usage - scan a repo for IP/port configurations"
+Type "# Demo 5: Adapter management command"
+Enter
+Type "gh aca set-adapters --help"
+Enter
+Sleep 2s
+
+# --- demo 6: demonstrate set-adapters usage ---
+Type "echo"
+Enter
+Type "# Demo 6: Store frequently used adapters for reuse"
+Enter
+Type "# gh aca set-adapters --adapters billing,payment,notifications,search"
+Enter
+Sleep 1s
+Type "# gh aca set-adapters --list"
+Enter
+Sleep 1s
+
+# --- demo 7: demonstrate with a real repo (if available) ---
+Type "echo"
+Enter
+Type "# Demo 7: Example usage - scan a repo for IP/port configurations"
 Enter
 Type "# gh aca ip-port --repo org/target-repo --output table"
 Enter
 Sleep 1s
 
-# --- demo 6: demonstrate adapter flipping (dry-run) ---
+# --- demo 8: demonstrate adapter flipping with stored adapters ---
 Type "echo"
 Enter
-Type "# Demo 6: Example usage - toggle adapters in env/dev/parameters.properties"
+Type "# Demo 8: Example usage - toggle adapters using stored list"
 Enter
-Type "# gh aca flip-adapters --repo org/target-repo --env dev --adapters ADAPTER_1,ADAPTER_2 --dry-run"
+Type "# gh aca flip-adapters --repo org/target-repo --env dev --dry-run"
+Enter
+Type "# (uses stored adapters from set-adapters command)"
 Enter
 Sleep 1s
 

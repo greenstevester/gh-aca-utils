@@ -14,7 +14,12 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg ttf-liberation
+
+      - name: Verify ffmpeg installation
+        run: |
+          ffmpeg -version
+          which ffmpeg
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -27,6 +32,8 @@ jobs:
         with:
           path: demo.tape
           install-fonts: true
+        env:
+          VHS_FFMPEG: ffmpeg
 
       # Auto-commit any updated GIF assets
       - name: Commit GIF

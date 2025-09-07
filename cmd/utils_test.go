@@ -27,9 +27,11 @@ func TestMatchAny(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			got := matchAny(tt.path, tt.patterns)
+			// Normalize the test path for cross-platform compatibility
+			normalizedPath := filepath.ToSlash(tt.path)
+			got := matchAny(normalizedPath, tt.patterns)
 			if got != tt.want {
-				t.Errorf("matchAny(%q, %v) = %v, want %v", tt.path, tt.patterns, got, tt.want)
+				t.Errorf("matchAny(%q, %v) = %v, want %v", normalizedPath, tt.patterns, got, tt.want)
 			}
 		})
 	}

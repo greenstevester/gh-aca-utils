@@ -210,7 +210,7 @@ func cmdFlipAdapters() *cobra.Command {
 				return printChangeReport(changes, modeVal)
 			}
 
-			if err := os.WriteFile(propPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
+			if err := os.WriteFile(propPath, []byte(strings.Join(lines, "\n")), 0600); err != nil {
 				return fmt.Errorf("write %s: %w", propPath, err)
 			}
 
@@ -415,7 +415,7 @@ func untarGz(r io.Reader, dest string) error {
 				return err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(fp), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(fp), 0750); err != nil {
 				return err
 			}
 			f, err := os.Create(fp) // #nosec G304 - fp is validated above for path traversal
@@ -868,7 +868,7 @@ func getAdapterConfigPath() (string, error) {
 	}
 
 	configDir := filepath.Join(homeDir, ".gh-aca-utils")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -903,7 +903,7 @@ func storeAdapters(adapters string) error {
 
 	// Write to file (overwrite existing)
 	content := strings.Join(validAdapters, "\n") + "\n"
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to write adapter file: %w", err)
 	}
 

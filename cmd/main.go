@@ -120,9 +120,15 @@ func cmdFlipAdapters() *cobra.Command {
 			}
 			defer cleanup()
 
-			propPath := filepath.Join(tmpDir, "env", envName, "parameters.properties")
-			// Validate path is within expected directory to prevent traversal
-			if !strings.HasPrefix(propPath, tmpDir) {
+			// Validate environment name to prevent path traversal
+			cleanEnvName := filepath.Clean(envName)
+			if strings.Contains(cleanEnvName, "..") || strings.Contains(cleanEnvName, "/") || strings.Contains(cleanEnvName, "\\") {
+				return fmt.Errorf("invalid environment name: %q", envName)
+			}
+			
+			propPath := filepath.Join(tmpDir, "env", cleanEnvName, "parameters.properties")
+			// Double-check path is within expected directory
+			if !strings.HasPrefix(propPath, filepath.Join(tmpDir, "env")+string(os.PathSeparator)) {
 				return fmt.Errorf("invalid file path")
 			}
 			b, err := os.ReadFile(propPath) // #nosec G304 - path is validated above
@@ -380,7 +386,7 @@ func moveUp(src, dest string) error {
 
 var (
 	ipv4   = regexp.MustCompile(`\b((25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\b`)
-	ipv6   = regexp.MustCompile(`[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,6}::|::([0-9a-fA-F]{1,4}:){1,6}[0-9a-fA-F]{1,4}|::|::1`)
+	ipv6   = regexp.MustCompile(`(?i)(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|(?:[0-9a-f]{0,4}:){1,7}:[0-9a-f]{0,4}|(?:[0-9a-f]{1,4}:){1,6}::|::(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{0,4}|::1|::`)
 	kvRe   = regexp.MustCompile(`^\s*([A-Za-z0-9_.\-]+)\s*[:=]\s*(.+?)\s*$`)
 	portRe = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.\-]*port[A-Za-z0-9_.\-]*)\s*[:=\s]\s*["']?([0-9]{2,5})["']?\b`)
 )
@@ -398,7 +404,8 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
-			return err // Return error instead of ignoring
+			fmt.Fprintf(os.Stderr, "warning: failed to get relative path for %s: %v\n", path, err)
+			return nil // Continue walking instead of failing completely
 		}
 		if matchAny(rel, excludes) {
 			return nil
@@ -427,6 +434,12 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 		if err != nil {
 			continue
 		}
+		defer func(file *os.File) {
+			if closeErr := file.Close(); closeErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", f, closeErr)
+			}
+		}(fh)
+		
 		s := bufio.NewScanner(fh)
 		lineNo := 0
 		for s.Scan() {
@@ -457,9 +470,6 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 			if ipKey != "" || ipVal != "" || portKey != "" || portVal != "" {
 				rows = append(rows, matchRow{ipKey, ipVal, portKey, portVal, rel, lineNo})
 			}
-		}
-		if err := fh.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", f, err)
 		}
 	}
 	return rows

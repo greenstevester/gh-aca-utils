@@ -637,9 +637,7 @@ func getAllBranches(repoDir string) ([]string, error) {
 		if branch != "" && !strings.Contains(branch, "HEAD") {
 			// Remove origin/ prefix and any leading whitespace/asterisks
 			branch = strings.TrimSpace(strings.TrimPrefix(branch, "*"))
-			if strings.HasPrefix(branch, "origin/") {
-				branch = strings.TrimPrefix(branch, "origin/")
-			}
+			branch = strings.TrimPrefix(branch, "origin/")
 			// Only add unique branches
 			if branch != "" && !seenBranches[branch] {
 				seenBranches[branch] = true
@@ -882,7 +880,7 @@ func storeAdapters(adapters string) error {
 	}
 
 	// Filter out empty adapter names and validate
-	var validAdapters []string
+	validAdapters := make([]string, 0, len(adapterList))
 	for _, adapter := range adapterList {
 		trimmed := strings.TrimSpace(adapter)
 		if trimmed == "" {

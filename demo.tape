@@ -85,7 +85,7 @@ Type "echo"
 Enter
 Type "# Demo 6: Store frequently used adapters for reuse"
 Enter
-Type "# gh aca set-adapters --adapters billing,payment,notifications,search"
+Type "# gh aca set-adapters --adapters JMS_ADAPTER,MESSAGING_ADAPTER,MQ_ADAPTER"
 Enter
 Sleep 1s
 Type "# gh aca set-adapters --list"

@@ -20,63 +20,72 @@ Set BorderRadius 16
 Set TypingSpeed 40 ms
 Set Theme "Catppuccin Frappe"
 
-# --- build latest binary (hidden) ---
-Hide
-Type "clear"
-Enter
-Type "echo Building latest binary..."
-Enter
-Type "go build -o gh-aca-utils ."
-Enter
-Sleep 500ms
-Type "clear"
-Enter
-Show
-
 # --- title card ---
-Type "# gh-aca-utils - GitHub CLI extension demo"
+Type "# gh-aca-utils - An ACA GitHub CLI extension to help you work with github"
 Enter
 Sleep 800ms
-Type "# Two commands: ip-port extraction + adapter toggling"
+Type "# Two main features: ip-port extraction from the repo + adapter toggling"
 Enter
 Sleep 800ms
 Type "echo"
 Enter
 
-# --- show help first ---
-Type "./gh-aca-utils --help"
+# --- demo 1: Windows installation ---
+Type "# Demo 1: gh-aca-utils extension - Installation on Windows"
+Enter
+Type "# Using Windows cmd Terminal or git bash:"
+Enter
+Type "gh extension install greenstevester/gh-aca-utils"
+Enter
+Sleep 2s
+Type "echo"
+Enter
+Type "# Verify installation:"
+Enter
+Type "gh aca --help"
+Enter
+Sleep 2s
+Type "echo"
+Enter
+
+# --- demo 2: show help ---
+Type "# Demo 2: Command overview"
+Enter
+Type "gh aca --help"
 Enter
 Sleep 2s
 
-# --- example 1: show ip-port command help ---
-Type "echo"
+# --- demo 3: show ip-port command help ---
+Type "# Demo 3: IP/Port extraction command"
 Enter
-Type "./gh-aca-utils ip-port --help"
-Enter
-Sleep 2s
-
-# --- example 2: show flip-adapters command help ---
-Type "echo"
-Enter
-Type "./gh-aca-utils flip-adapters --help"
+Type "gh aca ip-port --help"
 Enter
 Sleep 2s
 
-# --- example 3: demonstrate with a real repo (if available) ---
+# --- demo 4: show flip-adapters command help ---
 Type "echo"
 Enter
-Type "# Example: scan a public repo for IP/port configurations"
+Type "# Demo 4: Adapter toggling command"
 Enter
-Type "# ./gh-aca-utils ip-port --repo octocat/Hello-World --output table"
+Type "gh aca flip-adapters --help"
+Enter
+Sleep 2s
+
+# --- demo 5: demonstrate with a real repo (if available) ---
+Type "echo"
+Enter
+Type "# Demo 5: Example usage - scan a repo for IP/port configurations"
+Enter
+Type "# gh aca ip-port --repo org/target-repo --output table"
 Enter
 Sleep 1s
 
-# --- example 4: demonstrate adapter flipping (dry-run) ---
+# --- demo 6: demonstrate adapter flipping (dry-run) ---
 Type "echo"
 Enter
-Type "# Example: toggle adapters in env/dev/parameters.properties"
+Type "# Demo 6: Example usage - toggle adapters in env/dev/parameters.properties"
 Enter
-Type "# ./gh-aca-utils flip-adapters --repo myorg/myrepo --env dev --adapters adapter1,adapter2 --dry-run"
+Type "# gh aca flip-adapters --repo org/target-repo --env dev --adapters ADAPTER_1,ADAPTER_2 --dry-run"
 Enter
 Sleep 1s
 

@@ -1,10 +1,16 @@
-# ⚡ gh-aca-utils — GitHub CLI Extension
+# ⚡ gh-aca-utils — GitHub CLI Extension from the ACA Team
 
-A GitHub CLI extension for automating common ACA (Application Configuration Audit) tasks across repositories.
+[![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://golang.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/greenstevester/gh-aca-utils)](https://github.com/greenstevester/gh-aca-utils/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/greenstevester/gh-aca-utils)](https://goreportcard.com/report/github.com/greenstevester/gh-aca-utils)
+[![Build Status](https://github.com/greenstevester/gh-aca-utils/workflows/CI/badge.svg)](https://github.com/greenstevester/gh-aca-utils/actions)
+
+A GitHub CLI extension for automating common ACA tasks across repositories.
 
 ## What is this?
 
-This extension provides two essential commands for managing application configurations:
+It's a GitHub Command Line (gh cli) extension,  provides two essential commands for managing application configurations:
 
 - **`ip-port`** - Scans repositories to extract IP addresses and port configurations from config files
 - **`flip-adapters`** - Toggles adapter settings (0↔1) in environment parameter files with optional Git workflow automation
@@ -13,7 +19,9 @@ Perfect for DevOps teams managing multiple microservices with environment-specif
 
 ![demo](docs/demo.gif)
 
-## Prerequisites
+## 🚀 Quick Start
+
+## Prerequisites - you must have these already installed:
 
 - GitHub CLI v2.0.0+ ([installation guide](https://github.com/cli/cli#installation))
 - Git authentication configured (`gh auth status`)
@@ -23,7 +31,7 @@ Perfect for DevOps teams managing multiple microservices with environment-specif
 
 1. Install the `gh` cli - see the [installation](https://github.com/cli/cli#installation)
 
-   _Installation requires a minimum version (2.0.0) of the the GitHub CLI that supports extensions._
+   _Installation requires a minimum version (2.0.0) of the GitHub CLI that supports extensions._
 
 2. Install this extension:
 
@@ -64,9 +72,7 @@ Perfect for DevOps teams managing multiple microservices with environment-specif
    ```
    </details>
 
-## Usage
-
-### Quick Start
+## How to use it ( a few examples )
 
 ```bash
 # Show available commands
@@ -160,7 +166,7 @@ billing  0    1    env/dev/parameters.properties
 search   1    0    env/dev/parameters.properties
 ```
 
-### Expected File Structure
+### Expected File Structure in your repository for this feature to work
 
 For the `flip-adapters` command, your repository should have this structure:
 

@@ -1,8 +1,8 @@
 module github.com/greenstevester/gh-aca-utils
 
-go 1.22
+go 1.25
 
-toolchain go1.22.0
+toolchain go1.25.0
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1

@@ -125,7 +125,7 @@ func cmdFlipAdapters() *cobra.Command {
 			if strings.Contains(cleanEnvName, "..") || strings.Contains(cleanEnvName, "/") || strings.Contains(cleanEnvName, "\\") {
 				return fmt.Errorf("invalid environment name: %q", envName)
 			}
-			
+
 			propPath := filepath.Join(tmpDir, "env", cleanEnvName, "parameters.properties")
 			// Double-check path is within expected directory
 			if !strings.HasPrefix(propPath, filepath.Join(tmpDir, "env")+string(os.PathSeparator)) {
@@ -439,7 +439,7 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 				fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", f, closeErr)
 			}
 		}(fh)
-		
+
 		s := bufio.NewScanner(fh)
 		lineNo := 0
 		for s.Scan() {

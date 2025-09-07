@@ -210,7 +210,7 @@ func cmdFlipAdapters() *cobra.Command {
 				return printChangeReport(changes, modeVal)
 			}
 
-			if err := os.WriteFile(propPath, []byte(strings.Join(lines, "\n")), 0600); err != nil {
+			if err := os.WriteFile(propPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
 				return fmt.Errorf("write %s: %w", propPath, err)
 			}
 
@@ -411,11 +411,11 @@ func untarGz(r io.Reader, dest string) error {
 		case tar.TypeDir:
 			// #nosec G115 - hdr.Mode is from trusted tar header, masked to safe value
 			mode := os.FileMode(hdr.Mode & 0755) // Restrict permissions
-			if err := os.MkdirAll(fp, mode); err != nil {
+			if err := os.MkdirAll(fp, mode|0755); err != nil { // Ensure directories are accessible
 				return err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(fp), 0750); err != nil {
+			if err := os.MkdirAll(filepath.Dir(fp), 0755); err != nil {
 				return err
 			}
 			f, err := os.Create(fp) // #nosec G304 - fp is validated above for path traversal
@@ -482,6 +482,8 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 			fmt.Fprintf(os.Stderr, "warning: failed to get relative path for %s: %v\n", path, err)
 			return nil // Continue walking instead of failing completely
 		}
+		// Normalize path separators for cross-platform compatibility
+		rel = filepath.ToSlash(rel)
 		if matchAny(rel, excludes) {
 			return nil
 		}
@@ -504,6 +506,8 @@ func scanForIPPort(root string, includes, excludes []string) []matchRow {
 			fmt.Fprintf(os.Stderr, "warning: failed to get relative path for %s: %v\n", f, err)
 			continue
 		}
+		// Normalize path separators for cross-platform compatibility
+		rel = filepath.ToSlash(rel)
 
 		// Use anonymous function to ensure file is closed immediately
 		func() {
@@ -631,7 +635,9 @@ func getAllBranches(repoDir string) ([]string, error) {
 
 	var branches []string
 	seenBranches := make(map[string]bool)
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	// Handle both Unix (\n) and Windows (\r\n) line endings
+	outputStr := strings.ReplaceAll(string(output), "\r\n", "\n")
+	lines := strings.Split(strings.TrimSpace(outputStr), "\n")
 	for _, line := range lines {
 		branch := strings.TrimSpace(line)
 		if branch != "" && !strings.Contains(branch, "HEAD") {
@@ -740,7 +746,9 @@ func matchAny(path string, patterns []string) bool {
 	normalizedPath := filepath.ToSlash(path)
 
 	for _, p := range patterns {
-		ok, err := doublestar.PathMatch(p, normalizedPath)
+		// Ensure patterns also use forward slashes for consistency
+		normalizedPattern := filepath.ToSlash(p)
+		ok, err := doublestar.PathMatch(normalizedPattern, normalizedPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: invalid pattern %q: %v\n", p, err)
 			continue
@@ -860,7 +868,7 @@ func getAdapterConfigPath() (string, error) {
 	}
 
 	configDir := filepath.Join(homeDir, ".gh-aca-utils")
-	if err := os.MkdirAll(configDir, 0750); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -895,7 +903,7 @@ func storeAdapters(adapters string) error {
 
 	// Write to file (overwrite existing)
 	content := strings.Join(validAdapters, "\n") + "\n"
-	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write adapter file: %w", err)
 	}
 
@@ -959,7 +967,9 @@ func loadStoredAdapters() ([]string, error) {
 		return nil, err
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	// Handle both Unix (\n) and Windows (\r\n) line endings
+	contentStr := strings.ReplaceAll(string(content), "\r\n", "\n")
+	lines := strings.Split(strings.TrimSpace(contentStr), "\n")
 	var adapters []string
 	for _, line := range lines {
 		adapter := strings.TrimSpace(line)

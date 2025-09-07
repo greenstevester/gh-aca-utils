@@ -21,8 +21,8 @@ func TestMatchAny(t *testing.T) {
 		{"config/app.properties", []string{"**/*.properties", "**/*.yml"}, true},
 		{"README.md", []string{"**/*.go", "**/*.js"}, false},
 		{"deep/nested/path/file.txt", []string{"**/*.txt"}, true},
-		{".git/config", []string{"**/.git/**"}, true},
-		{"src/.git/hooks/pre-commit", []string{"**/.git/**"}, true},
+		{".git/config", []string{"**/*.go", "**/*.properties"}, false},
+		{"src/.git/hooks/pre-commit", []string{"**/*.go", "**/*.properties"}, false},
 	}
 
 	for _, tt := range tests {

@@ -1,12 +1,19 @@
 # ⚡ gh-aca-utils — GitHub CLI Extension from the ACA Team
 
-[![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/greenstevester/gh-aca-utils)](https://github.com/greenstevester/gh-aca-utils/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/greenstevester/gh-aca-utils)](https://goreportcard.com/report/github.com/greenstevester/gh-aca-utils)
 [![Build Status](https://github.com/greenstevester/gh-aca-utils/workflows/CI/badge.svg)](https://github.com/greenstevester/gh-aca-utils/actions)
 
 A GitHub CLI extension for automating common ACA tasks across repositories.
+
+## ⚡ Quick Start (2 minutes)
+
+1. **Install**: `gh extension install greenstevester/gh-aca-utils`
+2. **Test**: `gh aca ip-port --repo octocat/Hello-World --output table`
+3. **Done!** You should see a table of any IP/port configurations found.
+
+**Need help?** Run `gh aca --help` to see all available commands.
 
 ## What is this?
 
@@ -17,24 +24,42 @@ It's a GitHub Command Line (gh cli) extension that provides two essential comman
 
 ![demo](docs/demo.gif)
 
-## 🚀 Quick Start
+## 🚀 Installation
 
-## Prerequisites - you must have these already installed:
+### Simple Installation (Recommended)
 
-- GitHub CLI v2.0.0+ ([installation guide](https://github.com/cli/cli#installation))
-- Git authentication configured (`gh auth status`)
-- Access to target repositories
-
-## Installation
-
-1. Install the "gh-aca-utils" extension per below:
-
-   ```sh
-   gh extension install greenstevester/gh-aca-utils
-   ```
+```bash
+gh extension install greenstevester/gh-aca-utils
+```
 
 <details>
-   <summary><strong>Manual Installation</strong></summary>
+<summary><strong>Manual Installation</strong></summary>
+
+If the simple installation doesn't work, you can install manually:
+
+```bash
+# Clone and build from source
+git clone https://github.com/greenstevester/gh-aca-utils.git
+cd gh-aca-utils
+go build -o gh-aca
+gh extension install .
+```
+
+Or download a pre-built binary from the [releases page](https://github.com/greenstevester/gh-aca-utils/releases).
+
+**Verify installation worked:**
+```bash
+gh aca --help
+```
+
+</details>
+
+### Prerequisites
+
+You must have these already installed:
+- **GitHub CLI v2.0.0+** ([installation guide](https://github.com/cli/cli#installation))
+- **Git authentication configured** (run `gh auth status` to verify)
+- **Access to target repositories** (public repos work automatically)
 
 ## How to use it
 
@@ -268,8 +293,36 @@ done
       --pr
 ```
 
-## Upgrade
+## System Requirements
 
+- **Operating Systems**: Windows, macOS, Linux
+- **GitHub CLI**: v2.0.0 or higher
+- **Git**: Any recent version (for authentication)
+- **Go**: Not required for users (only needed for development)
+
+## Maintenance
+
+### Upgrade
 ```bash
 gh extension upgrade aca
 ```
+
+### Uninstall
+```bash
+gh extension remove aca
+```
+
+### Configuration Files
+- Stored adapters: `~/.gh-aca-utils/adapters.txt`
+- Remove config directory: `rm -rf ~/.gh-aca-utils`
+
+## Contributing
+
+Found a bug or want to contribute? 
+- **Report issues**: [GitHub Issues](https://github.com/greenstevester/gh-aca-utils/issues)
+- **Feature requests**: [GitHub Discussions](https://github.com/greenstevester/gh-aca-utils/discussions)
+- **Pull requests**: Welcome! Please read our contributing guidelines.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

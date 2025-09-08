@@ -1,15 +1,15 @@
 # ⚡ gh-aca-utils — GitHub CLI Extension from the ACA Team
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![GitHub Release](https://img.shields.io/github/v/release/avaloq/gh-aca-utils)](https://github.com/avaloq/gh-aca-utils/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/avaloq/gh-aca-utils)](https://goreportcard.com/report/github.com/avaloq/gh-aca-utils)
-[![Build Status](https://github.com/avaloq/gh-aca-utils/workflows/CI/badge.svg)](https://github.com/avaloq/gh-aca-utils/actions)
+[![GitHub Release](https://img.shields.io/github/v/release/greenstevester/gh-aca-utils)](https://github.com/greenstevester/gh-aca-utils/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/greenstevester/gh-aca-utils)](https://goreportcard.com/report/github.com/greenstevester/gh-aca-utils)
+[![Build Status](https://github.com/greenstevester/gh-aca-utils/workflows/CI/badge.svg)](https://github.com/greenstevester/gh-aca-utils/actions)
 
 A GitHub CLI extension for automating common ACA tasks across repositories.
 
 ## ⚡ Quick Start (2 minutes)
 
-1. **Install**: `gh extension install avaloq/gh-aca-utils`
+1. **Install**: `gh extension install greenstevester/gh-aca-utils`
 2. **Test**: `gh aca ip-port --repo octocat/Hello-World --output table`
 3. **Done!** You should see a table of any IP/port configurations found.
 
@@ -29,7 +29,7 @@ It's a GitHub Command Line (gh cli) extension that provides two essential comman
 ### Simple Installation (Recommended)
 
 ```bash
-gh extension install avaloq/gh-aca-utils
+gh extension install greenstevester/gh-aca-utils
 ```
 
 <details>
@@ -39,13 +39,13 @@ If the simple installation doesn't work, you can install manually:
 
 ```bash
 # Clone and build from source
-git clone https://github.com/avaloq/gh-aca-utils.git
+git clone https://github.com/greenstevester/gh-aca-utils.git
 cd gh-aca-utils
 go build -o gh-aca
 gh extension install .
 ```
 
-Or download a pre-built binary from the [releases page](https://github.com/avaloq/gh-aca-utils/releases).
+Or download a pre-built binary from the [releases page](https://github.com/greenstevester/gh-aca-utils/releases).
 
 **Verify installation worked:**
 ```bash
@@ -319,8 +319,8 @@ gh extension remove aca
 ## Contributing
 
 Found a bug or want to contribute? 
-- **Report issues**: [GitHub Issues](https://github.com/avaloq/gh-aca-utils/issues)
-- **Feature requests**: [GitHub Discussions](https://github.com/avaloq/gh-aca-utils/discussions)
+- **Report issues**: [GitHub Issues](https://github.com/greenstevester/gh-aca-utils/issues)
+- **Feature requests**: [GitHub Discussions](https://github.com/greenstevester/gh-aca-utils/discussions)
 - **Pull requests**: Welcome! Please read our contributing guidelines.
 
 ## License

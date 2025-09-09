@@ -24,93 +24,82 @@ Set Theme "Catppuccin Frappe"
 Type "# gh-aca-utils - An ACA GitHub CLI extension to help you work with github"
 Enter
 Sleep 800ms
-Type "# Two main features: ip-port extraction from the repo + adapter toggling"
+Type "# Three main features: ip-port extraction + adapter management + adapter toggling"
 Enter
 Sleep 800ms
 Type "echo"
 Enter
 
-# --- demo 1: Windows installation ---
-Type "# Demo 1: gh-aca-utils extension - Installation on Windows"
+# --- demo 1: Installation and help ---
+Type "echo '=== DEMO 1: Installation and Command Overview ==='"
 Enter
-Type "# Using Windows cmd Terminal or git bash:"
-Enter
-Type "gh extension install greenstevester/gh-aca-utils"
+Type "# To install: gh extension install greenstevester/gh-aca-utils"
 Enter
 Sleep 2s
 Type "echo"
 Enter
-Type "# Verify installation:"
+Type "./gh-aca-utils --help"
 Enter
-Type "gh aca --help"
+Sleep 2s
+
+# --- demo 2: IP/Port extraction ---
+Type "echo"
+Enter
+Type "echo '=== DEMO 2: IP/Port Configuration Extraction ==='"
+Enter
+Type "./gh-aca-utils ip-port --help"
 Enter
 Sleep 2s
 Type "echo"
 Enter
-
-# --- demo 2: show help ---
-Type "# Demo 2: Command overview"
+Type "echo 'Scanning example repo for IP/port configurations...'"
 Enter
-Type "gh aca --help"
+Type "./gh-aca-utils ip-port --repo greenstevester/aca-example-repo --output table"
+Enter
+Sleep 3s
+
+# --- demo 3: Adapter management ---
+Type "echo"
+Enter
+Type "echo '=== DEMO 3: Adapter Management ==='"
+Enter
+Type "./gh-aca-utils set-adapters --help"
+Enter
+Sleep 2s
+Type "echo"
+Enter
+Type "echo 'Example: Store adapters for reuse'"
+Enter
+Type "# ./gh-aca-utils set-adapters --adapters billing,search,payment"
 Enter
 Sleep 2s
 
-# --- demo 3: show ip-port command help ---
-Type "# Demo 3: IP/Port extraction command"
+# --- demo 4: Adapter flipping ---
+Type "echo"
 Enter
-Type "gh aca ip-port --help"
+Type "echo '=== DEMO 4: Adapter Configuration Toggle ==='"
+Enter
+Type "./gh-aca-utils flip-adapters --help"
 Enter
 Sleep 2s
-
-# --- demo 4: show flip-adapters command help ---
 Type "echo"
 Enter
-Type "# Demo 4: Adapter toggling command"
+Type "echo 'Current adapter states (dry-run):'"
 Enter
-Type "gh aca flip-adapters --help"
+Type "./gh-aca-utils flip-adapters --repo greenstevester/aca-example-repo --env dev --adapters billing,search --dry-run"
 Enter
-Sleep 2s
+Sleep 3s
 
-# --- demo 5: show set-adapters command help ---
+# --- demo 5: Flip adapters (simulated) ---
 Type "echo"
 Enter
-Type "# Demo 5: Adapter management command"
+Type "echo 'Flipping adapter states (simulated):'"
 Enter
-Type "gh aca set-adapters --help"
+Type "./gh-aca-utils flip-adapters --repo greenstevester/aca-example-repo --env dev --adapters billing,search --dry-run=false"
 Enter
-Sleep 2s
+Sleep 3s
 
-# --- demo 6: demonstrate set-adapters usage ---
-Type "echo"
-Enter
-Type "# Demo 6: Store frequently used adapters for reuse"
-Enter
-Type "# gh aca set-adapters --adapters JMS_ADAPTER,MESSAGING_ADAPTER,MQ_ADAPTER"
-Enter
-Sleep 1s
-Type "# gh aca set-adapters --list"
-Enter
-Sleep 1s
 
-# --- demo 7: demonstrate with a real repo (if available) ---
-Type "echo"
-Enter
-Type "# Demo 7: Example usage - scan a repo for IP/port configurations"
-Enter
-Type "# gh aca ip-port --repo org/target-repo --output table"
-Enter
-Sleep 1s
-
-# --- demo 8: demonstrate adapter flipping with stored adapters ---
-Type "echo"
-Enter
-Type "# Demo 8: Example usage - toggle adapters using stored list"
-Enter
-Type "# gh aca flip-adapters --repo org/target-repo --env dev --dry-run"
-Enter
-Type "# (uses stored adapters from set-adapters command)"
-Enter
-Sleep 1s
 
 # --- cleanup (hidden) ---
 Hide

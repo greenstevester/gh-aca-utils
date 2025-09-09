@@ -237,7 +237,7 @@ func cmdFlipAdapters() *cobra.Command {
 				}
 				if doPR {
 					prTitle := fmt.Sprintf("Flip adapters in %s: %s", envName, strings.Join(want, ", "))
-					prBody := "Automated via gh aca flip-adapters."
+					prBody := "Automated via gh aca-utils flip-adapters."
 					if err := ghIn(tmpDir, "pr", "create", "--fill", "--title", prTitle, "--body", prBody); err != nil {
 						return err
 					}

@@ -5,15 +5,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/greenstevester/gh-aca-utils)](https://goreportcard.com/report/github.com/greenstevester/gh-aca-utils)
 [![Build Status](https://github.com/greenstevester/gh-aca-utils/workflows/CI/badge.svg)](https://github.com/greenstevester/gh-aca-utils/actions)
 
-A GitHub CLI extension for automating common ACA tasks across repositories.
+A GitHub CLI extension for automating common aca-utils (Application Configuration Audit) tasks across repositories.
 
 ## ⚡ Quick Start (2 minutes)
 
 1. **Install**: `gh extension install greenstevester/gh-aca-utils`
-2. **Test**: `gh aca ip-port --repo octocat/Hello-World --output table`
+2. **Test**: `gh aca-utils ip-port --repo greenstevester/aca-example-repo --output table`
 3. **Done!** You should see a table of any IP/port configurations found.
 
-**Need help?** Run `gh aca --help` to see all available commands.
+**Need help?** Run `gh aca-utils --help` to see all available commands.
 
 ## What is this?
 
@@ -67,12 +67,12 @@ NOTE: Once it's installed, you can run the gh "aca" extension commands ALWAYS WI
 
 ```bash
 # Show available commands
-gh aca --help
+gh aca-utils --help
 
 # Get help for specific commands
-gh aca ip-port --help
-gh aca flip-adapters --help
-gh aca set-adapters --help
+gh aca-utils ip-port --help
+gh aca-utils flip-adapters --help
+gh aca-utils set-adapters --help
 ```
 
 ### IP/Port Extraction Command
@@ -80,23 +80,23 @@ gh aca set-adapters --help
 Extract IP addresses and port configurations from a target repository across all branches:
 
 ```bash
-# Scan a public repository for IP/port configurations (default branch only)
-gh aca ip-port --repo octocat/Hello-World --output table
+# Scan a public repository for IP/port configurations
+gh aca-utils ip-port --repo greenstevester/aca-example-repo --output table
 
 # Scan ALL branches in the repository for comprehensive coverage
 gh aca ip-port --repo myorg/microservice --all-branches --output table
 
 # Scan with custom file patterns
-gh aca ip-port --repo myorg/microservice \
+gh aca-utils ip-port --repo greenstevester/aca-example-repo \
   --include "**/*.properties,**/*.yml,**/*.json" \
   --exclude "**/test/**,**/node_modules/**" \
   --output json
 
 # Scan specific branch or tag
-gh aca ip-port --repo myorg/api-service --ref production --output csv
+gh aca-utils ip-port --repo greenstevester/aca-example-repo --ref production --output csv
 
 # Scan all branches with custom patterns and exclusions  
-gh aca ip-port --repo myorg/config-repo --all-branches \
+gh aca-utils ip-port --repo greenstevester/aca-example-repo --all-branches \
   --include "**/*.properties,**/*.env" \
   --exclude "**/test/**" --output json
 ```
@@ -111,7 +111,7 @@ gh aca ip-port --repo myorg/config-repo --all-branches \
 #### Example Output
 
 ```bash
-$ gh aca ip-port --repo myorg/config-repo --output table
+$ gh aca-utils ip-port --repo greenstevester/aca-example-repo --output table
 
 IP Key          IP Value      Port Key       Port Value  File Path                    Line
 database.host   10.0.0.5      database.port  5432        config/app.properties        12
@@ -156,12 +156,12 @@ Toggle adapter configurations in environment parameter files:
 
 ```bash
 # Dry run (default) - show what would change
-gh aca flip-adapters --repo myorg/service \
+gh aca-utils flip-adapters --repo greenstevester/aca-example-repo \
   --env dev \
   --adapters billing,payment,notifications
 
 # Apply changes and create commit + PR
-gh aca flip-adapters --repo myorg/service \
+gh aca-utils flip-adapters --repo greenstevester/aca-example-repo \
   --env production \
   --adapters search,analytics \
   --commit \
@@ -169,7 +169,7 @@ gh aca flip-adapters --repo myorg/service \
   --branch "toggle/prod-adapters"
 
 # Apply changes only (no commit)
-gh aca flip-adapters --repo myorg/service \
+gh aca-utils flip-adapters --repo greenstevester/aca-example-repo \
   --env staging \
   --adapters crm,inventory \
   --dry-run=false
@@ -199,7 +199,7 @@ gh aca flip-adapters --repo myorg/service \
 #### Example Output
 
 ```bash
-$ gh aca flip-adapters --repo myorg/api --env dev --adapters billing,search --output table
+$ gh aca-utils flip-adapters --repo greenstevester/aca-example-repo --env dev --adapters billing,search --output table
 
 Adapter  Old  New  File
 billing  0    1    env/dev/parameters.properties
@@ -275,7 +275,7 @@ repos=("org/api-service" "org/web-app" "org/database")
 
 for repo in "${repos[@]}"; do
   echo "Scanning $repo..."
-  gh aca ip-port --repo "$repo" --output csv >> all-configs.csv
+  gh aca-utils ip-port --repo "$repo" --output csv >> all-configs.csv
 done
 ```
 
@@ -285,7 +285,7 @@ done
 # GitHub Actions workflow example
 - name: Toggle staging adapters
   run: |
-    gh aca flip-adapters \
+    gh aca-utils flip-adapters \
       --repo ${{ github.repository }} \
       --env staging \
       --adapters ${{ inputs.adapters }} \

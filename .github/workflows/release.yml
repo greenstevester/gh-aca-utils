@@ -166,10 +166,10 @@ jobs:
         echo "✅ Tag ${{ steps.tag.outputs.tag }} created and pushed successfully!"
 
     - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5
+      uses: goreleaser/goreleaser-action@v6
       with:
         distribution: goreleaser
-        version: latest
+        version: "~> v2"
         args: release --clean
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
